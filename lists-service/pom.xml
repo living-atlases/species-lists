@@ -407,7 +407,11 @@
           <!-- A floor, not a target: the minimums below sit just under the coverage at the time
                this was added (32.5% of lines, 26.5% of branches), so a change that drops coverage
                fails the build while the number is raised deliberately, as tests are added. Bound to
-               verify, so a container-free `mvn test` is not measured against it. -->
+               verify, so a container-free `mvn test` is not measured against it.
+
+               The floor counts the integration tests, which need Docker. Without it they skip and
+               coverage is 27%, so `mvn verify` fails here rather than on a test: run `mvn test`, or
+               `mvn verify -Djacoco.skip=true`, on a machine with no Docker. -->
           <execution>
             <id>check</id>
             <phase>verify</phase>
