@@ -96,10 +96,27 @@ export const FileUploadDropzone = ({
   const handleReset = useCallback(() => {
     setError(null);
     setResult(null);
+    setOriginalName(initialTitle || null);
     if (onReset) {
       onReset();
     }
-  }, [onReset]);
+  }, [initialTitle, onReset]);
+
+  // Lets the user clear a failed or completed upload and start again. The click
+  // must not bubble, otherwise the surrounding Dropzone also opens the file picker.
+  const resetButton = (
+    <Button
+      size='xs'
+      variant='outline'
+      color='dark'
+      onClick={(event) => {
+        event.stopPropagation();
+        handleReset();
+      }}
+    >
+      <FormattedMessage id='upload.reset' defaultMessage='Start over' />
+    </Button>
+  );
 
   let idle: { title: ReactNode; content: ReactNode; icon: ReactNode } = {
     title: intl.formatMessage({ id: 'upload.list.description', defaultMessage: 'Drag list here, or click to select' }),
@@ -119,9 +136,12 @@ export const FileUploadDropzone = ({
     idle = {
       title: intl.formatMessage({ id: 'upload.error.message.title', defaultMessage: 'An error has occurred' }),
       content: (
-        <Text size='sm' c='dimmed'>
-          {getErrorMessage(error)}, <FormattedMessage id='upload.error.message.tryAgain' defaultMessage='please try again with another file' />
-        </Text>
+        <>
+          <Text size='sm' c='dimmed'>
+            {getErrorMessage(error)}, <FormattedMessage id='upload.error.message.tryAgain' defaultMessage='please try again with another file' />
+          </Text>
+          {resetButton}
+        </>
       ),
       icon: <CautionIcon size={40} />,
     };
@@ -135,6 +155,7 @@ export const FileUploadDropzone = ({
             <b><FormattedMessage id='upload.additional.fields' defaultMessage='Additional Fields' />:</b>{' '}
             {result.fieldList.length > 0 ? result.fieldList.join(', ') : 'N/A'}
           </Text>
+          {resetButton}
         </>
       ),
       icon: <FolderIcon size={40} />,
