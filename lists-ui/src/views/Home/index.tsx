@@ -318,7 +318,7 @@ const Home = ({ routeId }: { routeId: string }) => {
       }
 
       // Otherwise, hide if there's only 1 option and its count equals or exceeds the total elements
-      if (facet.counts.length === 1 && facet.counts[0].count >= totalElements) {
+      if (facet.counts.length === 1 && facet.counts[0].count >= (totalElements ?? Infinity)) {
         return false;
       }
       
