@@ -39,7 +39,7 @@ View the app at `http://localhost:5173/`
 By default `VITE_*` values are baked into the build, so each deployment has to edit `config/.env.*` and rebuild. For deployments that want to point a built app at their own backend and identity provider without rebuilding, there is a second build profile from the same code:
 
 ```bash
-yarn build:community   # tsc && vite build --mode community
+yarn build:community   # yarn typecheck && vite build --mode community
 ```
 
 It is `config/.env.production` plus `config/.env.community` on top (which sets `VITE_RUNTIME_CONFIG_ENABLED=true` and empties `VITE_APP_FATHOM_ID`). The output keeps `<script src="/config.js">` and `config.local.js` in `index.html` and ships `community/config.js`:
@@ -80,6 +80,18 @@ The same mechanism covers the portal's branding. All of these are optional and e
 
 The default build (`yarn build:production` and the other modes) removes those tags, does not copy `community/` and does not rewrite anything, so it is unchanged. To try it with the dev server, run `yarn dev --mode community` and create `community/config.local.js` (git-ignored).
 
+## Checks before a commit
+
+```bash
+yarn lint        # ESLint (eslint.config.js), zero warnings allowed
+yarn typecheck   # tsc -b, plus the e2e and unit test projects
+yarn test        # node:test unit tests in test/
+```
+
+`yarn typecheck` goes through the referenced projects on purpose: the root `tsconfig.json` is a
+solution file (`files: []`, `references`), so a plain `tsc --noEmit` checks nothing at all. CI runs
+these three in the `checks` job of `.github/workflows/playwright.yml`.
+
 ## Running Playwright Functional Tests
 
 Playwright functional tests live in `lists-ui/e2e/`. They test core user journeys based on the test plan, with mock OIDC session injection for authenticated/admin flows and network route mocking for CI reproducibility.
@@ -103,24 +115,28 @@ To run against a live running environment instead of the local dev server:
 BASE_URL=https://lists.test.ala.org.au yarn test:e2e
 ```
 
-## Expanding the ESLint configuration
+The specs in `e2e/specs/community/` cover the community build's runtime theming, which only exists
+with `--mode community`, so they run as a second Playwright project (`community`) against a dev
+server of their own on port 5174, started automatically. They serve their own `config.local.js` to
+act as a deployment that has configured a theme. To point them at a deployed community build
+instead:
 
-If you are developing a production application, we recommend updating the configuration to enable type aware lint rules:
-
-- Configure the top-level `parserOptions` property like this:
-
-```js
-export default {
-  // other rules...
-  parserOptions: {
-    ecmaVersion: 'latest',
-    sourceType: 'module',
-    project: ['./tsconfig.json', './tsconfig.node.json'],
-    tsconfigRootDir: __dirname,
-  },
-}
+```bash
+COMMUNITY_BASE_URL=https://lists.example.org yarn test:e2e --project=community
 ```
 
-- Replace `plugin:@typescript-eslint/recommended` to `plugin:@typescript-eslint/recommended-type-checked` or `plugin:@typescript-eslint/strict-type-checked`
-- Optionally add `plugin:@typescript-eslint/stylistic-type-checked`
-- Install [eslint-plugin-react](https://github.com/jsx-eslint/eslint-plugin-react) and add `plugin:react/recommended` & `plugin:react/jsx-runtime` to the `extends` list
+## Expanding the ESLint configuration
+
+`eslint.config.js` is an ESLint 9 flat config and deliberately small: TypeScript already covers
+unused symbols and types, so it adds the React hook rules and a handful of correctness rules.
+
+The next two steps, both failing today, are the rules the sources already carry `eslint-disable`
+comments for: `react-hooks/exhaustive-deps` (19 findings) and
+`@typescript-eslint/no-explicit-any` (15). Turning one on means fixing those, and an
+exhaustive-deps fix changes when an effect re-runs, so it needs reading rather than a bulk edit.
+Once they are on, put `--report-unused-disable-directives` back in the `lint` script so stale
+disable comments are reported.
+
+Type-aware rules (`@typescript-eslint/recommended-type-checked`) would need
+`parserOptions.projectService` and a slower lint run; they are worth it once the two rules above
+pass.
